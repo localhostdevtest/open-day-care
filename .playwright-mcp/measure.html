@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<body style="margin:0">
+  <img id="a" src="/referencias/screenshots/feed.png" style="display:none">
+  <img id="b" src="/.playwright-mcp/feed-prod-924.png" style="display:none">
+  <script>
+    function load(img) {
+      return img.complete ? Promise.resolve(img) : new Promise((res, rej) => { img.onload = () => res(img); img.onerror = rej; });
+    }
+    function near(px, i, r, g, b, tol) {
+      return Math.abs(px[i] - r) <= tol && Math.abs(px[i + 1] - g) <= tol && Math.abs(px[i + 2] - b) <= tol;
+    }
+    function measure(img) {
+      const w = img.naturalWidth, h = img.naturalHeight;
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0);
+      const d = ctx.getImageData(0, 0, w, h).data;
+      const px = (x, y) => (y * w + x) * 4;
+      const out = { size: [w, h] };
+
+      // 1. sidebar right border (#ECE0D0) at y=300
+      for (let x = 200; x < 320; x++) {
+        if (near(d, px(x, 300), 236, 224, 208, 6)) { out.sidebarBorderX = x; break; }
+      }
+      // 2. "Buenas, Caro" first dark pixel (scan region)
+      out.buenasLeft = null; out.buenasTop = null;
+      for (let y = 40; y < 110 && out.buenasTop === null; y++) {
+        for (let x = 280; x < 520; x++) {
+          const i = px(x, y);
+          if (d[i] < 120 && d[i + 1] < 120 && d[i + 2] < 120) { out.buenasTop = y; out.buenasLeft = x; break; }
+        }
+      }
+      // 3. composer card left edge at y=250 (bg #F6ECDF -> #FFFDF9)
+      out.cardLeft = null;
+      for (let x = 260; x < 400; x++) {
+        if (near(d, px(x, 250), 255, 253, 249, 5)) { out.cardLeft = x; break; }
+      }
+      // 4. composer card right edge at y=250
+      for (let x = w - 1; x > 400; x--) {
+        if (near(d, px(x, 250), 255, 253, 249, 5)) { out.cardRight = x; break; }
+      }
+      // 5. "Nueva publicación" button top (orange #F4977E-ish) at x=120
+      out.btnTop = null;
+      for (let y = 60; y < 140; y++) {
+        const i = px(120, y);
+        if (d[i] > 220 && d[i + 1] > 120 && d[i + 1] < 180 && d[i + 2] < 160) { out.btnTop = y; break; }
+      }
+      // 6. PUBLICADO HOY divider line (#E7DAC8) in main area x 600..700
+      out.dividerY = null;
+      for (let y = 200; y < 300; y++) {
+        let cnt = 0;
+        for (let x = 600; x < 700; x++) if (near(d, px(x, y), 231, 218, 200, 8)) cnt++;
+        if (cnt > 80) { out.dividerY = y; break; }
+      }
+      // 7. post card left edge at y=320
+      out.postLeft = null;
+      for (let x = 260; x < 400; x++) {
+        if (near(d, px(x, 320), 255, 253, 249, 5)) { out.postLeft = x; break; }
+      }
+      // 8. post card top border (#ECE0D0) at x=600
+      for (let y = 250; y < 320; y++) {
+        if (near(d, px(600, y), 236, 224, 208, 6)) { out.postTop = y; break; }
+      }
+      // 9. avatrar M center: first strongly blue pixel (#A9D9E8) region
+      out.avatarM = null;
+      for (let y = 280; y < 340 && !out.avatarM; y++) {
+        for (let x = 300; x < 400; x++) {
+          if (near(d, px(x, y), 169, 217, 232, 8)) { out.avatarM = [x, y]; break; }
+        }
+      }
+      function rightmostDark(x0, x1, y0, y1) {
+        for (let x = x1; x >= x0; x--) {
+          for (let y = y0; y <= y1; y++) {
+            const i = px(x, y);
+            if (d[i] < 140 && d[i + 1] < 140 && d[i + 2] < 140) return x;
+          }
+        }
+        return null;
+      }
+      out.buenasRight = rightmostDark(285, 560, 48, 95);
+      out.subRight = rightmostDark(285, 560, 100, 132);
+      out.pubHoyRight = rightmostDark(285, 560, 228, 252);
+      return out;
+    }
+    window.__result = null;
+    Promise.all([load(document.getElementById('a')), load(document.getElementById('b'))]).then(([ia, ib]) => {
+      window.__result = { ref: measure(ia), mine: measure(ib) };
+      document.title = 'done';
+    }).catch(e => { window.__result = String(e); document.title = 'done'; });
+  </script>
+</body>
+</html>

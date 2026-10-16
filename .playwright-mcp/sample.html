@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<body style="margin:0">
+  <img id="a" src="/referencias/screenshots/feed.png" style="display:none">
+  <img id="b" src="/.playwright-mcp/feed-prod-924.png" style="display:none">
+  <script>
+    function load(img) {
+      return img.complete ? Promise.resolve(img) : new Promise((res, rej) => { img.onload = () => res(img); img.onerror = rej; });
+    }
+    function sample(img, points) {
+      const w = img.naturalWidth, h = img.naturalHeight;
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0);
+      const d = ctx.getImageData(0, 0, w, h).data;
+      return points.map(([x, y]) => {
+        const i = (y * w + x) * 4;
+        return [d[i], d[i + 1], d[i + 2], d[i + 3]];
+      });
+    }
+    const pts = [[5, 5], [320, 5], [100, 300], [247, 300], [260, 300], [400, 230], [600, 209], [600, 240], [120, 100], [400, 460]];
+    window.__result = null;
+    Promise.all([load(document.getElementById('a')), load(document.getElementById('b'))]).then(([ia, ib]) => {
+      window.__result = { points: pts, ref: sample(ia, pts), mine: sample(ib, pts) };
+      document.title = 'done';
+    }).catch(e => { window.__result = String(e); document.title = 'done'; });
+  </script>
+</body>
+</html>

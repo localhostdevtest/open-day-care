@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<body style="margin:0">
+  <img id="a" src="/referencias/screenshots/feed.png" style="display:none">
+  <img id="b" src="/.playwright-mcp/feed-prod-924.png" style="display:none">
+  <canvas id="diff" style="display:block"></canvas>
+  <script>
+    function load(img) {
+      return img.complete ? Promise.resolve(img) : new Promise((res, rej) => { img.onload = () => res(img); img.onerror = rej; });
+    }
+    window.__result = null;
+    Promise.all([load(document.getElementById('a')), load(document.getElementById('b'))]).then(([ia, ib]) => {
+      const w = ia.naturalWidth, h = ia.naturalHeight;
+      if (w !== ib.naturalWidth || h !== ib.naturalHeight) {
+        window.__result = { sizeA: [w, h], sizeB: [ib.naturalWidth, ib.naturalHeight] };
+        document.title = 'done';
+        return;
+      }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(ia, 0, 0);
+      const da = ctx.getImageData(0, 0, w, h).data;
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(ib, 0, 0);
+      const db = ctx.getImageData(0, 0, w, h).data;
+      const out = ctx.createImageData(w, h);
+      for (let i = 0; i < out.data.length; i += 4) { out.data[i + 3] = 255; }
+      let diff = 0, maxd = 0;
+      const counts = { t30: 0, t60: 0, t90: 0, t120: 0, anyCh50: 0 };
+      let minx = 1e9, miny = 1e9, maxx = -1, maxy = -1;
+      const rows = {}, cols = {};
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const i = (y * w + x) * 4;
+          const d = Math.abs(da[i] - db[i]) + Math.abs(da[i + 1] - db[i + 1]) + Math.abs(da[i + 2] - db[i + 2]) + Math.abs(da[i + 3] - db[i + 3]);
+          if (d > 30) counts.t30++;
+          if (d > 60) counts.t60++;
+          if (d > 90) counts.t90++;
+          if (d > 120) counts.t120++;
+          if (Math.max(Math.abs(da[i] - db[i]), Math.abs(da[i + 1] - db[i + 1]), Math.abs(da[i + 2] - db[i + 2])) > 50) counts.anyCh50++;
+          if (d > 30) {
+            diff++;
+            if (d > maxd) maxd = d;
+            if (x < minx) minx = x; if (y < miny) miny = y;
+            if (x > maxx) maxx = x; if (y > maxy) maxy = y;
+            rows[Math.floor(y / 50)] = (rows[Math.floor(y / 50)] || 0) + 1;
+            cols[Math.floor(x / 50)] = (cols[Math.floor(x / 50)] || 0) + 1;
+            out.data[i] = 255; out.data[i + 1] = 0; out.data[i + 2] = 0;
+          }
+        }
+      }
+      const diffCanvas = document.getElementById('diff');
+      diffCanvas.width = w; diffCanvas.height = h;
+      diffCanvas.getContext('2d').putImageData(out, 0, 0);
+      window.__result = { size: [w, h], diffPixels: diff, pct: +(100 * diff / (w * h)).toFixed(2), maxChannelDelta: maxd, counts, bbox: maxx >= 0 ? [minx, miny, maxx, maxy] : null, rows50px: rows, cols50px: cols };
+      document.title = 'done';
+    }).catch(e => { window.__result = String(e); document.title = 'done'; });
+  </script>
+</body>
+</html>

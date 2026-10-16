@@ -1,6 +1,6 @@
 # SPEC 01 — Feed de la guardería como home
 
-> **Status:** Aprobado
+> **Status:** Implementado
 > **Depends on:** —
 > **Date:** 2026-10-16
 > **Objective:** Implementar la plantilla `referencias/pantallas/feed.dc.html` como página home (`/`) con estilo idéntico, contenido mock y sin autenticación ni base de datos.
